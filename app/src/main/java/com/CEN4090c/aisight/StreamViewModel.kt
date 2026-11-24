@@ -552,6 +552,10 @@ class StreamViewModel(application: Application) : AndroidViewModel(application) 
     // Gives detections stable IDs over time, plus distance and time to contact
     private val tracker = ObjectTracker()
 
+    // Haptic feedback runs on the phone, not on the glasses.
+    // One pulse for a newly confirmed tracked object, never every video frame.
+    private val hapticAlerts = DetectionHaptics(application)
+
     // FPS counter
     private var frameCount = 0
     private var windowStart = 0L
@@ -655,6 +659,9 @@ class StreamViewModel(application: Application) : AndroidViewModel(application) 
                 val tracked = synchronized(tracker) { tracker.update(result, frameTimeMs) }
                 _detections.value = result
                 _tracks.value = tracked
+                if (_isActive.value) {
+                    hapticAlerts.onTrackedObjects(tracked, frameTimeMs)
+                }
                 Log.d(
                     TAG,
                     "Detect ${result.inferenceMs} ms: " + tracked.joinToString {
@@ -692,6 +699,7 @@ class StreamViewModel(application: Application) : AndroidViewModel(application) 
         _detections.value = null
         _tracks.value = emptyList()
         synchronized(tracker) { tracker.reset() }
+        hapticAlerts.reset()
         _fps.value = 0
         _isActive.value = false
         _status.value = lastError ?: "Stopped"
